@@ -2,27 +2,41 @@ import runpod
 import os
 from huggingface_hub import hf_hub_download
 
+MODEL_DIR = "/runpod-volume/models/ltx-2.5"
+
+REQUIRED_FILES = [
+    "diffusion_models/ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+    "text_encoders/gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
+    "vae/ltx-2.5-video-vae-bf16.safetensors",
+    "vae/ltx-2.5-audio-vae-bf16.safetensors",
+]
+
+def ensure_model_downloaded():
+    hf_token = os.environ.get("HF_TOKEN")
+    status = {}
+    for f in REQUIRED_FILES:
+        local_path = os.path.join(MODEL_DIR, f)
+        expected_min_size = 1000  # bytes — partial-file check ke liye
+
+        if os.path.exists(local_path) and os.path.getsize(local_path) > expected_min_size:
+            status[f] = "already_cached"
+        else:
+            hf_hub_download(
+                repo_id="Lightricks/LTX-2.5",
+                filename=f,
+                token=hf_token,
+                local_dir=MODEL_DIR,
+            )
+            status[f] = "downloaded"
+    return status
+
 def handler(event):
     try:
-        hf_token = os.environ.get("HF_TOKEN")
-        if not hf_token:
-            return {"status": "error", "stage": "auth_check", "message": "HF_TOKEN not set"}
-
-        # Sabse chhoti file se test karo (~348MB)
-        path = hf_hub_download(
-            repo_id="Lightricks/LTX-2.5",
-            filename="vae/ltx-2.5-audio-vae-bf16.safetensors",
-            token=hf_token,
-        )
-        size = os.path.getsize(path)
-        return {"status": "success", "downloaded_path": path, "size_bytes": size}
+        result = ensure_model_downloaded()
+        return {"status": "success", "stage": "model_download", "files": result}
     except Exception as e:
         import traceback
-        return {
-            "status": "error",
-            "stage": "model_download",
-            "message": str(e),
-            "traceback": traceback.format_exc(),
-        }
+        return {"status": "error", "stage": "model_download", "message": str(e),
+                 "traceback": traceback.format_exc()}
 
 runpod.serverless.start({"handler": handler})
