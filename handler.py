@@ -2,7 +2,7 @@ import runpod
 import os
 from huggingface_hub import hf_hub_download
 
-MODEL_DIR = "/runpod-volume/models/ltx-2.5"
+MODEL_DIR = "/app/models/ltx-2.5"
 
 REQUIRED_FILES = [
     "diffusion_models/ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
@@ -16,9 +16,7 @@ def ensure_model_downloaded():
     status = {}
     for f in REQUIRED_FILES:
         local_path = os.path.join(MODEL_DIR, f)
-        expected_min_size = 1000  # bytes — partial-file check ke liye
-
-        if os.path.exists(local_path) and os.path.getsize(local_path) > expected_min_size:
+        if os.path.exists(local_path) and os.path.getsize(local_path) > 1000:
             status[f] = "already_cached"
         else:
             hf_hub_download(
