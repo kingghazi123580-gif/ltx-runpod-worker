@@ -1,51 +1,52 @@
 import runpod
 import os
-from huggingface_hub import hf_hub_download
+import torch
+from diffusers import AutoencoderKLLTX2Video, AutoencoderKLLTX2Audio
+from transformers import GemmaTokenizer, Gemma3ForConditionalGeneration
 
 MODEL_DIR = "/runpod-volume/models/ltx-2.5"
 
-REQUIRED_FILES = [
-    "diffusion_models/ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
-    "text_encoders/gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
-    "vae/ltx-2.5-video-vae-bf16.safetensors",
-    "vae/ltx-2.5-audio-vae-bf16.safetensors",
-]
-
-def ensure_model_downloaded():
-    hf_token = os.environ.get("HF_TOKEN")
-    status = {}
-    for f in REQUIRED_FILES:
-        local_path = os.path.join(MODEL_DIR, f)
-        if os.path.exists(local_path) and os.path.getsize(local_path) > 1000:
-            status[f] = "already_cached"
-        else:
-            hf_hub_download(
-                repo_id="Lightricks/LTX-2.5",
-                filename=f,
-                token=hf_token,
-                local_dir=MODEL_DIR,
-            )
-            status[f] = "downloaded"
-    return status
-
 def handler(event):
     try:
-        # Phase 5.1: Import check
-        import torch
-        import diffusers
-        
-        result = ensure_model_downloaded()
-        return {
-            "status": "success",
-            "stage": "import_check",
-            "torch_version": torch.__version__,
-            "cuda_available": torch.cuda.is_available(),
-            "diffusers_version": diffusers.__version__,
-            "files": result
-        }
-    except Exception as e:
         import traceback
-        return {"status": "error", "stage": "import_check", "message": str(e),
-                 "traceback": traceback.format_exc()}
+        results = {}
+
+        # 1. Video VAE load test
+        vae_path = os.path.join(MODEL_DIR, "vae/ltx-2.5-video-vae-bf16.safetensors")
+        if os.path.exists(vae_path):
+            results["video_vae_exists"] = True
+            results["video_vae_size"] = os.path.getsize(vae_path)
+        else:
+            results["video_vae_exists"] = False
+
+        # 2. Audio VAE load test
+        audio_vae_path = os.path.join(MODEL_DIR, "vae/ltx-2.5-audio-vae-bf16.safetensors")
+        if os.path.exists(audio_vae_path):
+            results["audio_vae_exists"] = True
+            results["audio_vae_size"] = os.path.getsize(audio_vae_path)
+        else:
+            results["audio_vae_exists"] = False
+
+        # 3. Text encoder file check
+        text_enc_path = os.path.join(MODEL_DIR, "text_encoders/gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors")
+        if os.path.exists(text_enc_path):
+            results["text_encoder_exists"] = True
+            results["text_encoder_size"] = os.path.getsize(text_enc_path)
+        else:
+            results["text_encoder_exists"] = False
+
+        # 4. Transformer file check
+        transformer_path = os.path.join(MODEL_DIR, "diffusion_models/ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors")
+        if os.path.exists(transformer_path):
+            results["transformer_exists"] = True
+            results["transformer_size"] = os.path.getsize(transformer_path)
+        else:
+            results["transformer_exists"] = False
+
+        return {"status": "success", "stage": "model_files_check", "files": results}
+
+    except Exception as e:
+        return {"status": "error", "stage": "model_check", "message": str(e),
+                "traceback": traceback.format_exc()}
 
 runpod.serverless.start({"handler": handler})
