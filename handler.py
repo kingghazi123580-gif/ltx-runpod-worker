@@ -2,7 +2,7 @@ import runpod
 import os
 from huggingface_hub import hf_hub_download
 
-MODEL_DIR = "/app/models/ltx-2.5"
+MODEL_DIR = "/runpod-volume/models/ltx-2.5"
 
 REQUIRED_FILES = [
     "diffusion_models/ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",

@@ -1,2 +1,2 @@
-runpod
+runpod>=1.10.1
 huggingface_hub
