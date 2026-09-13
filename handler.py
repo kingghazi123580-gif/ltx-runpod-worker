@@ -30,11 +30,22 @@ def ensure_model_downloaded():
 
 def handler(event):
     try:
+        # Phase 5.1: Import check
+        import torch
+        import diffusers
+        
         result = ensure_model_downloaded()
-        return {"status": "success", "stage": "model_download", "files": result}
+        return {
+            "status": "success",
+            "stage": "import_check",
+            "torch_version": torch.__version__,
+            "cuda_available": torch.cuda.is_available(),
+            "diffusers_version": diffusers.__version__,
+            "files": result
+        }
     except Exception as e:
         import traceback
-        return {"status": "error", "stage": "model_download", "message": str(e),
+        return {"status": "error", "stage": "import_check", "message": str(e),
                  "traceback": traceback.format_exc()}
 
 runpod.serverless.start({"handler": handler})
